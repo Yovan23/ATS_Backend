@@ -29,7 +29,6 @@ const orderSchema = new mongoose.Schema({
     services: [{
         serviceType: { type: mongoose.Schema.Types.ObjectId, required: true, ref: "service" },
         vendor: {type: mongoose.Schema.Types.ObjectId, require: true, ref: "users"},
-        status: { type: String, enum: ["Pending", "Completed", "Cancelled"], default: "Pending" }
     }],
     orderStatus: { type: String, enum: ["Pending",  "Completed", "Cancelled"], default: "Pending" },
     isDeleted: { type: Boolean, default: false },

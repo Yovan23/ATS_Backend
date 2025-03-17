@@ -161,52 +161,20 @@ const sendEmailsToVendors = async (orderId) => {
     }
 };
 
-export const getMyOrders = async (req, res, next) => {
-    try {
-        let filterCondition = { isDeleted: false };
-
-        if (req.user.role === "agent") {
-            filterCondition.agentId = req.user._id;
-        }
-
-        const ordersData = await OrderModel.find(filterCondition)
-            .populate({
-                path: "services.serviceType",
-                select: "name description" // Fetch specific fields from serviceType
-            })
-            .populate({
-                path: "services.vendor",
-                select: "name email phone" // Fetch specific fields from vendor (users)
-            })
-            .populate({
-                path: "agentId",
-                select: "name email phone" 
-            });
-
-        if (!ordersData || ordersData.length === 0) {
-            throw new ErrorHandler("No Orders available", 404);
-        }
-
-        return res.success(200, "Orders fetched successfully", ordersData);
-    } catch (error) {
-        return next(error);
-    }
-};
-
-export const getAllOrders = async (req, res, next) => {
-    try {
-        const ordersData = await OrderModel.find({ isDeleted: false });
-        if (!ordersData || ordersData.length === 0) {
-            throw new ErrorHandler("No Oders available", 404);
-        }
-        return res.success(200, "Orders fetched successfully", ordersData);
-    } catch (error) {
-        return next(error);
-    }
-};
+// export const getAllOrders = async (req, res, next) => {
+//     try {
+//         const ordersData = await OrderModel.find({ isDeleted: false });
+//         if (!ordersData || ordersData.length === 0) {
+//             throw new ErrorHandler("No Oders available", 404);
+//         }
+//         return res.success(200, "Orders fetched successfully", ordersData);
+//     } catch (error) {
+//         return next(error);
+//     }
+// };
 export const updateOrder = async (req, res, next) => {
     const { id } = req.params;
-    const { propertyAddress, ownerDetails, services, orderStatus } = req.body;
+    const { propertyAddress, ownerDetails, services } = req.body;
 
     if (!id) {
         return next(new ErrorHandler("Please provide Order Id", 400));
@@ -225,7 +193,7 @@ export const updateOrder = async (req, res, next) => {
 
         const updateOrder = await OrderModel.findByIdAndUpdate(
             objectId,
-            { $set: { propertyAddress, ownerDetails, services, orderStatus } },
+            { $set: { propertyAddress, ownerDetails, services } },
             { new: true, session }
         );
 
@@ -241,6 +209,38 @@ export const updateOrder = async (req, res, next) => {
     }
 };
 
+export const updateOrderStatus = async (req, res, next) => {
+    const { id } = req.params;
+    const { orderStatus } = req.body;
+
+    if (!id) {
+        return next(new ErrorHandler("Please provide Order Id", 400));
+    }
+
+    if (!orderStatus) {
+        return next(new ErrorHandler("Please provide orderStatus", 400));
+    }
+
+    try {
+        const objectId = new mongoose.Types.ObjectId(id);
+        const orderData = await OrderModel.findById(objectId);
+
+        if (!orderData) {
+            throw new ErrorHandler("Order not found", 404);
+        }
+
+        const updatedOrder = await OrderModel.findByIdAndUpdate(
+            objectId,
+            { $set: { orderStatus } },
+            { new: true }
+        );
+
+        return res.success(200, "Order status updated successfully",orderStatus);
+    } catch (error) {
+        return next(error);
+    }
+};
+
 export const deleteOrder = async (req, res, next) => {
     const orderId = req.params.id;
 
@@ -249,18 +249,16 @@ export const deleteOrder = async (req, res, next) => {
     }
 
     const session = await mongoose.startSession();
-    session.startTransaction(); // ✅ Start the transaction **right after starting the session**
+    session.startTransaction(); 
 
     try {
         const objectId = new mongoose.Types.ObjectId(orderId);
 
-        // Check if the order is already deleted
         const orderData = await OrderModel.findOne({ _id: objectId, isDeleted: true }).session(session);
         if (orderData) {
             throw new ErrorHandler("This order is already deleted", 400);
         }
 
-        // Update the order to set isDeleted = true
         const deletedOrder = await OrderModel.findOneAndUpdate(
             { _id: objectId },
             { $set: { isDeleted: true } },
@@ -280,18 +278,126 @@ export const deleteOrder = async (req, res, next) => {
     }
 };
 
+// export const getMyOrders = async (req, res, next) => {
+//     try {
+//         let filterCondition = { isDeleted: false };
+
+//         if (req.user && req.user.role) {
+//             if (req.user.role === "Agent") {
+//                 filterCondition = { ...filterCondition, agentId: req.user._id };
+//             }
+//             if (req.user.role === "Vendor") {
+//                 filterCondition = { 
+//                     ...filterCondition, 
+//                     "services.vendor": req.user._id  // Ensures at least one service matches
+//                 };
+//             }
+//         }
+
+//         let ordersData = await OrderModel.find(filterCondition)
+//             .populate({
+//                 path: "services.serviceType",
+//                 select: "name description"
+//             })
+//             .populate({
+//                 path: "services.vendor",
+//                 select: "name email phone"
+//             })
+//             .populate({
+//                 path: "agentId",
+//                 select: "name email phone"
+//             });
+
+//         if (req.user.role === "Vendor") {
+//             ordersData = ordersData.map(order => ({
+//                 ...order.toObject(), // Convert Mongoose document to plain object
+//                 services: order.services.filter(service => 
+//                     service.vendor && service.vendor._id.toString() === req.user._id.toString()
+//                 )
+//             })).filter(order => order.services.length > 0); // Remove empty service orders
+//         }
+
+//         if (!ordersData || ordersData.length === 0) {
+//             throw new ErrorHandler("No Orders available", 404);
+//         }
+
+//         return res.success(200, "Orders fetched successfully", ordersData);
+//     } catch (error) {
+//         return next(error);
+//     }
+// };
+
+
+export const getMyOrders = async (req, res, next) => {
+    try {
+        let filterCondition = { isDeleted: false };
+
+        if (req.user && req.user.role) {
+            if (req.user.role === "Agent") {
+                filterCondition = { ...filterCondition, agentId: req.user._id };
+            }
+            if (req.user.role === "Vendor") {
+                filterCondition = { 
+                    ...filterCondition, 
+                    "services.vendor": req.user._id  // Ensures at least one service matches
+                };
+            }
+        }
+
+        let ordersData = await OrderModel.find(filterCondition)
+            .populate({
+                path: "services.serviceType",
+                select: "name description"
+            })
+            .populate({
+                path: "services.vendor",
+                select: "name email phone"
+            })
+            .populate({
+                path: "agentId",
+                select: "name email phone"
+            });
+
+        // If the logged-in user is a Vendor, filter only their relevant services
+        if (req.user.role === "Vendor") {
+            ordersData = ordersData.map(order => ({
+                ...order.toObject(), // Convert Mongoose document to plain object
+                services: order.services.filter(service => 
+                    service.vendor && service.vendor._id.toString() === req.user._id.toString()
+                )
+            })).filter(order => order.services.length > 0); // Remove empty service orders
+        }
+
+        if (!ordersData || ordersData.length === 0) {
+            throw new ErrorHandler("No Orders available", 404);
+        }
+
+        return res.success(200, "Orders fetched successfully", ordersData);
+    } catch (error) {
+        return next(error);
+    }
+};
 export const getOrderSummary = async (req, res, next) => {
     try {
-        let matchCondition = { isDeleted: false };
-        console.log(req.user._id);
+        let filterCondition = { isDeleted: false };
 
-        if (req.user.role === "Agent") {
-            matchCondition = { ...matchCondition, agentId: req.user._id };
+        console.log(req.user._id, req.user.role);
+
+        if (req.user && req.user.role) {
+            if (req.user.role === "Agent") {
+                filterCondition = { ...filterCondition, agentId: req.user._id };
+            }
+            if (req.user.role === "Vendor") {
+                filterCondition = { 
+                    ...filterCondition, 
+                    "services.vendor": req.user._id  // Ensures at least one service matches
+                };
+            }
         }
 
         const orderSummary = await OrderModel.aggregate([
             {
-                $match: matchCondition
+                $match: filterCondition
             },
             {
                 $group: {
@@ -302,7 +408,7 @@ export const getOrderSummary = async (req, res, next) => {
             {
                 $group: {
                     _id: null,
-                    totalOrders: { $sum: "$count" }, // Count total orders
+                    totalOrders: { $sum: "$count" },
                     orderStatusCounts: {
                         $push: {
                             status: "$_id",
@@ -338,3 +444,4 @@ export const getOrderSummary = async (req, res, next) => {
         return next(error);
     }
 };
+

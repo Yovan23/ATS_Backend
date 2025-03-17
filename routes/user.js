@@ -9,8 +9,7 @@ userRouter.get("/getAllUsers", getAllUser);
 userRouter.post("/createUser", authMiddleware(["Admin"]), createUser);
 userRouter.delete("/deleteUser/:id", authMiddleware(["Admin"]), deleteUser);
 userRouter.get("/loggedUser",authMiddleware(["Admin","Agent","Vendor"]), loggedUser);
-userRouter.post("/changePassword/:id", authMiddleware(["Admin","Agent","Vendor"]), changePassword);
-userRouter.put("/updateUser/:id", authMiddleware(["Admin"]), updateUser);
-
+userRouter.put("/changePassword/:id", authMiddleware(["Admin","Agent","Vendor"]), changePassword);
+userRouter.put("/updateUser/:id", authMiddleware(["Admin","Agent","Vendor"]), updateUser);
 
 export default userRouter;  
