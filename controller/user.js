@@ -8,6 +8,7 @@ import { ImageFileTypes } from "../utils/allowedValue.js";
 
 import mongoose from "mongoose";
 import { ResponseHandler } from "../middlewares/response.middleware.js";
+import { error } from "console";
 
 export const fileFilter = (allowedExtensions) => (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -69,6 +70,8 @@ export const createUser = async (req, res) => {
 
     if (!name) return res.status(400).json({ error: "Please enter a name" });
     if (!email) return res.status(400).json({ error: "Please enter an email" });
+    if(!phone) return res.status(400).json({ error: "Please enter a phone" });
+    if (!role) return res.status(400).json({ error: "Please enter a role" });
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -76,6 +79,10 @@ export const createUser = async (req, res) => {
     let uploadedFilename = null;
 
     try {
+        const existingUser = await UserModel.findOne({ email });
+        if (existingUser) {
+            throw new ErrorHandler("User with this email already exists", 400);
+        }
         // // Check if file exists
         // if (!req.file) {
         //     return res.status(400).json({ error: "Profile picture is required" });
@@ -107,16 +114,16 @@ export const createUser = async (req, res) => {
         await session.abortTransaction();
         session.endSession();
 
-        // Delete uploaded file if error occurs
-        if (uploadedFilename) {
-            const filePath = `./upload/UserImage/${uploadedFilename}`;
-            try {
-                await fs.unlink(filePath);
-                console.log("Uploaded file deleted:", filePath);
-            } catch (unlinkError) {
-                console.error("Error deleting file:", unlinkError);
-            }
-        }
+        // // Delete uploaded file if error occurs
+        // if (uploadedFilename) {
+        //     const filePath = `./upload/UserImage/${uploadedFilename}`;
+        //     try {
+        //         await fs.unlink(filePath);
+        //         console.log("Uploaded file deleted:", filePath);
+        //     } catch (unlinkError) {
+        //         console.error("Error deleting file:", unlinkError);
+        //     }
+        // }
 
         return res.status(500).json({ error: "Internal server error", details: error.message });
     }
@@ -225,7 +232,7 @@ export const changePassword = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
     const {id} = req.params;
-    const { name, email, phone, isActive } = req.body;
+    const { name, email, phone, isActive, role } = req.body;
 
     if (!id) {
         return next(new ErrorHandler("Please provide User ID", 400));
@@ -244,14 +251,14 @@ export const updateUser = async (req, res, next) => {
         if (name) updatedFields.name = name;
         if (email) updatedFields.email = email;
         if (phone) updatedFields.phone = phone;
-        if (typeof isActive !== 'undefined') updatedFields.isActive = isActive;
-
+        if (isActive) updatedFields.isActive = isActive;
+        if (role) updatedFields.role = role;
+        // if (typeof isActive !== 'undefined') updatedFields.isActive = isActive;
         const updatedUser = await UserModel.findByIdAndUpdate(
-            userId,
+            id,
             { $set: updatedFields },
             { new: true, session, select: "-password" }
         );
-
         await session.commitTransaction();
         return res.success(200, "User updated successfully", updatedUser);
     } catch (error) {

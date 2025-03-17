@@ -5,7 +5,8 @@ import {
     getAllVendors, 
     getVendor, 
     updateVendor,
-    getVendorsByService
+    getVendorsByService,
+    updateVendorServices
 } from "../controller/vendor.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
@@ -17,5 +18,6 @@ vendorRouter.post("/createVendor", authMiddleware(["Admin"]), createVendor);
 vendorRouter.put("/updateVendor/:id", authMiddleware(["Admin"]), updateVendor);
 vendorRouter.delete("/deleteVendor/:id", authMiddleware(["Admin"]), deleteVendor);
 vendorRouter.get("/getVendorByService/:service", getVendorsByService);
+vendorRouter.put("/updateService/:id/add-service",authMiddleware(["Admin"]), updateVendorServices);
 
 export default vendorRouter;

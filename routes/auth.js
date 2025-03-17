@@ -8,21 +8,7 @@ const authRouter = express.Router();
 
 authRouter.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
-// authRouter.get(
-//     "/google/callback",
-//     passport.authenticate("google", { failureRedirect: "https://r0rvz7pf-3000.inc1.devtunnels.ms/api/auth/google", session: false }),
-//     (req, res) => {
-//         if (!req.user) {
-//             return res.status(401).json({ message: "Unauthorized" });
-//         }
-//         return res.status(200).json({
-//             message: "User login successfully",
-//             data: req.user,  
-//         });
-//     }
-// );
-
-authRouter.get(
+authRouter.post(
     "/google/callback",
     (req, res, next) => {
         passport.authenticate("google", { session: false }, (err, user, info) => {
@@ -30,12 +16,8 @@ authRouter.get(
                 return res.status(401).json({ message: "You are not authorized to login" });
             }
             console.log("api call/ callback");
-            // res.redirect("/home")
-            return res.status(200).json({
-                message: "User login successfully",
-                data: user,
-            });
-        })(req, res, next);
+            return res.success(200, "User login successfully", user);  
+        });
     }
 );
 

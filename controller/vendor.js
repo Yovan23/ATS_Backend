@@ -46,7 +46,9 @@ export const createVendor = async (req, res, next) => {
 
 export const getAllVendors = async (req, res, next) => {
     try {
-        const vendorsData = await VendorModel.find({ isDeleted: false });
+        const vendorsData = await VendorModel.find({ isDeleted: false })
+                                             .populate({ 
+                                                path: "user"});
         if (!vendorsData || vendorsData.length === 0) {
             throw new ErrorHandler("No vendors available", 404);
         }
@@ -56,6 +58,43 @@ export const getAllVendors = async (req, res, next) => {
     }
 };
 
+// export const updateVendor = async (req, res, next) => {
+//     const { id } = req.params;
+//     const { servicesProvided, shopAddress, isActive } = req.body;
+
+//     if (!id) {
+//         return next(new ErrorHandler("Please provide Vendor ID", 400));
+//     }
+
+//     const session = await mongoose.startSession();
+//     try {
+//         session.startTransaction();
+
+//         const objectId = new mongoose.Types.objectId(id);
+//         const vendor = await VendorModel.findOne({ _id: objectId, isDeleted: false });
+
+//         if (!vendor) {
+//             throw new ErrorHandler("Vendor not found or already deleted", 404);
+//         }
+
+//         const updatedVendor = await VendorModel.findByIdAndUpdate(
+//             objectId,
+//             { $set: { servicesProvided, shopAddress, isActive } },
+//             { new: true, session }
+//         );
+
+//         await session.commitTransaction();
+//         session.endSession();
+
+//         return res.success(200, "Vendor updated successfully", updatedVendor);
+//     } catch (error) {
+//         await session.abortTransaction();
+//         return next(error);
+//     } finally {
+//         session.endSession();
+//     }
+// };
+
 export const updateVendor = async (req, res, next) => {
     const { id } = req.params;
     const { servicesProvided, shopAddress, isActive } = req.body;
@@ -63,20 +102,21 @@ export const updateVendor = async (req, res, next) => {
     if (!id) {
         return next(new ErrorHandler("Please provide Vendor ID", 400));
     }
-
+    if(!shopAddress) {
+        return next(new ErrorHandler("Please provide shopAddress", 400));
+    }
     const session = await mongoose.startSession();
     try {
         session.startTransaction();
 
-        const objectId = new mongoose.Types.objectId(id);
-        const vendor = await VendorModel.findOne({ _id: objectId, isDeleted: false });
+        const vendor = await VendorModel.findOne({ _id: id, isDeleted: false });
 
         if (!vendor) {
             throw new ErrorHandler("Vendor not found or already deleted", 404);
         }
 
         const updatedVendor = await VendorModel.findByIdAndUpdate(
-            objectId,
+            id, 
             { $set: { servicesProvided, shopAddress, isActive } },
             { new: true, session }
         );
@@ -92,7 +132,6 @@ export const updateVendor = async (req, res, next) => {
         session.endSession();
     }
 };
-
 export const deleteVendor = async (req, res, next) => {
     const vendorId = req.params.id;
 
@@ -137,7 +176,7 @@ export const getVendorsByService = async (req, res, next) => {
             servicesProvided: service, 
             isDeleted: false 
         })
-        .populate("user", "name") // Populate 'user' and select only 'name'
+        .populate("user", "name email phone") 
         .select("user");
 
         if (!vendors || vendors.length === 0) {
@@ -145,6 +184,31 @@ export const getVendorsByService = async (req, res, next) => {
         }
 
         return res.success(200, "Vendors fetched successfully", vendors);
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export const updateVendorServices = async (req, res, next) => {
+    const { id } = req.params; // Vendor ID
+    const { servicesProvided } = req.body; // Array of services to be updated
+
+    if (!id || !servicesProvided || !Array.isArray(servicesProvided)) {
+        return next(new ErrorHandler("Please provide Vendor ID and an array of services", 400));
+    }
+
+    try {
+        const vendor = await VendorModel.findOneAndUpdate(
+            { _id: id, isDeleted: false },
+            { $set: { servicesProvided } }, // Directly update the array
+            { new: true, runValidators: true }
+        );
+
+        if (!vendor) {
+            return next(new ErrorHandler("Vendor not found or already deleted", 404));
+        }
+
+        return res.success(200, "Services updated successfully", vendor);
     } catch (error) {
         return next(error);
     }
